@@ -1149,8 +1149,210 @@ urlcolor=black
     \end{itemize}
 
     \section{Процессы и потоки в Linux}
+
+    Каждая задача в ядре Linux описывается структурой task struct, а список задач хранится в виде циклического двусвязного списка (Связный список). Описание структуры task struct можно найти в файле: include -> Linux -> sched.h исходников ядра. task struct ещё называют дескриптором процесса и в нём находится вся важная информация об исполняемом процессе.
+
+
+    \href{https://elixir.bootlin.com/linux/latest/source/include/linux/sched.h}{https://elixir.bootlin.com/linux/latest/source/include/linux/sched.h}
+
+    Визуально можно представить это данным образом: 
+
+    \begin{figure}[H]
+        \begin{center}
+            \includegraphics[scale=0.50]{res/task-struckt.png}
+            \caption{Task-struct}
+        \end{center}
+    \end{figure}
+
+    Утилита ps3 показывает дерево процессов.
+
+    \begin{figure}[H]
+        \begin{center}
+            \includegraphics[scale=0.50]{res/state-proces-diagram.png}
+            \caption{Диограмма состояний процесса}
+        \end{center}
+    \end{figure}
+
+    Помним, что процессы сами себя диспетчеризируют, и к примеру, когда закончился квант времени у процесса, вызывается функция put prev task () и процесс сам уходит в очередь ожидания.
+
+    \subsection{Создание процесса со стороны пользователя}
+
+    \begin{itemize}
+        \item fork() "--- создает процесс, наследуясь от другого процесса, возвращает номер процесса родителю и 0 созданному процессу, -1 в случае ошибки.
+        \item vfork() "--- создать процесс с копией адресного пространства родителя.
+        \item clone() "--- создать процесс, управляя копированием выбранных частей процесса.
+        \item execv ()"--- перекрытие образа процесса.
+    \end{itemize}
+
+    В Linux нет примитива tread соответствующего пользовательскому потоку. Альтернатива tread это вызов clone.
+
+    Пример: 
+    
+    \begin{minted}[fontsize=\footnotesize]{cpp}
+        clone (CLONE_VM | CLONE_FILES | CLONE_FS | ClonE_High aNd | ClonE_ThReAd |
+        CLOnE_seT TLs | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID CLONE_SYSVSEM, 0); 
+        (NPTL version)
+    \end{minted}
+
+    Визуализизация создания процесса:
+
+    \begin{figure}[H]
+        \begin{center}
+            \includegraphics[scale=0.50]{res/create-process.png}
+            \caption{Создание процесса}
+        \end{center}
+    \end{figure}
+
+    Функция copy proces отвечает за дублицирования процесса. Тут не используется стандартное копирование структур, когда мы копируем поля и методы, а используется усовершенствованное.
+
+    \begin{figure}[H]
+        \begin{center}
+            \includegraphics[scale=0.50]{res/copy-process.png}
+            \caption{Как выглядит внутри copy process}
+        \end{center}
+    \end{figure}
+
+    \begin{definition}
+        \textbf{KThread} "--- пердназначен для выполнения фоновых операций в ядре, нет своего адрессного пространсва (использяется кэш ядра). По сути является процессом фонового назначения. Особенность заключается в том, что другие потоки не могут останавить его, а только кинуть сообщение об остановке.
+    \end{definition}
+
+    \begin{definition}
+        \textbf{Takslets} "--- придуманны для того, чтобы разнести обработку при вызове прерывания. Обработка разносилась на две части Top Half (быстрая регистрация прерывания) и Bottom half (вызывается по тригеру и обработать прерывания асинхронно). Один tasklet может исполняться только на одном ядре (процессоре).
+    \end{definition}
+
+    \subsection{Завершение процесса}
+
+    \begin{figure}[H]
+        \begin{center}
+            \includegraphics[scale=0.50]{res/final-proces.png}
+            \caption{Завершение процесса}
+        \end{center}
+    \end{figure}
+
     \section{Примитивы синхронизации в Linux}
+
+
     \section{Процессы и потоки в Windows}
+
+    \subsection{Типы процессов}
+
+    \textbf{Современные процессы} "--- Universal Windows Platform process (приложения из магазина майкрасофт). В них также есть Protected Processes, которые недоступны даже для администратора, чтобы избежать пиратсва.
+
+    \textbf{Minimal процессы} "--- нет пользовательского пространства и работают как чать ядра (system process и Memory Compression process)
+    
+    \textbf{Pico процессы} "--- ограниченный доступ к системным функциям представляющий набор callback.
+
+    \textbf{Trustlets процессы} "--- процессы для запуска внутри системы визуализации (Virtual trust level)
+
+    \textbf{Jobs процессы} "--- средство группировки процессов.
+
+    \textbf{WOW} "--- 32 битные процессы на 64 разрядной системе.
+
+    \textbf{Обычные потоки (User"=Kernel)} "--- базовая реализация posix tread.
+
+    \textbf{Fider потоки} "--- пользовательская реализация потоков, невидимая ядру. (kernel32.dll). Данные потоки сами освобождают ресурсы ядра для след процесса.
+
+    \textbf{Asyncronious Procedure Call (APS) и Deffered Procedure Call (DPC)} "--- концепции, которые позволяют выполняться на уровне прерываний, который выше, чем у пользователя. (используются при программирование на ядро)
+
+    \begin{definition}
+        \textbf{IRQL} "--- «уровень запроса прерывания». Механизм программно-аппаратной приоритизации, применяемый для синхронизации в операционных системах.
+    \end{definition}
+
+    \subsection{Структура процессов Windows}
+
+    \begin{figure}[H]
+        \begin{center}
+            \includegraphics[scale=0.40]{res/Windows-process-structure.png}
+            \caption{Структура процессов Windows}
+        \end{center}
+    \end{figure}
+
+    Главным элементом является структура \textbf{Eprocess}, в которой содержится индификатор процесса, токен безопасности, список потоков принадлежащих процессов.
+
+    В целом большинство вещей в ядре Windows являются объектами (максимально приближенно к концепции ООП).
+
+    В Eprocess встроен \textbf{Kprocess} или \textbf{kernel process}, который содержит инструкции исполнения на процессоре, также счетчики производительности
+
+    \textbf{PCB} "--- управляющий блок процесса.
+    \textbf{TCB} "--- управляющий блок потоков.
+
+    Аналогично Kprocess есть Ktread. 
+
+    Все это находится на Kernel уровне, а чтобы получить доступ к частям этих структур на пользовательском режиме используют структуры PEB (описание процесса и ссылки на его части) и (TEB, то же самое с потоками).
+
+    CSRSS "--- Процесс исполнения клиент-сервер, также помогает с пользовательского уровня добраться до kernel процессов.
+
+    В Windows нет в явном виде parent процессов. Есть процессы и их потоки, которые хранят ссылки на друг друга.
+
+
+    \subsection{Состояние процессов Windows}
+
+
+    \begin{figure}[H]
+        \begin{center}
+            \includegraphics[scale=0.6]{res/state-process-windows.png}
+            \caption{Состояния процессов Windows}
+        \end{center}
+    \end{figure}
+
+    KeSwapProcess "--- функция, которая занимается загрузкой и выгрузкой процессов.
+
+    Состояние транзита, когда процесс начал выгружаться в swap область. (Помечен для выгрузки, очередь на диспетчеризацию загрузки).
+
+    ProcessOutSwap "--- фактическая выгрузка в swap.
+
+    \begin{figure}[H]
+        \begin{center}
+            \includegraphics[scale=0.6]{res/tread-state-windows.png}
+            \caption{Состояния потоков Windows}
+        \end{center}
+    \end{figure}
+
+    \begin{figure}[H]
+        \begin{center}
+            \includegraphics[scale=0.6]{res/fields-process-tread-windows.png}
+            \caption{Поля процессов и потоков Windows}
+        \end{center}
+    \end{figure}
+
+
+    \subsection{Создание процессов}
+
+    NtCreateUserProcess "--- главная функция, которая осуществляет в ядре вызов создания процесса. Nt.dll "--- библиотека системных вызовов нижнего уровня, к ней подключаются все библиотеке, которые вы можете использовать как user.
+
+    Avipi.dll "--- библиотека, которая создает процесс с использованием вашего логина или токена безопасности. Она не лезет на прямую к нижнему уровню, а использует процесс SvcHost.exe.
+
+    \begin{figure}[H]
+        \begin{center}
+            \includegraphics[scale=0.4]{res/Create-process-windows.png}
+            \caption{Создание процессов в Windows}
+        \end{center}
+    \end{figure}
+
+    \subsection{Завершение процессов}
+
+    Корректное завершение "--- ExitProcess();
+
+    Прекращение процесса другим процессом "--- TerminateProcess();
+
+    \hfill \break
+    Последовательность завершения процесса:
+
+    \begin{enumerate}
+        \item Оповещение DLL (если не использован TerminateProcess())
+        \item Закрытие всех handles и kernel objects
+        \item Закрываются все активные потоки
+        \item Код возврата изменяется на указанный
+        \item Когда все ссылки в процессе равны 0, объект процесса удаляется.
+    \end{enumerate}
+
+    \begin{figure}[H]
+        \begin{center}
+            \includegraphics[scale=0.6]{res/prefix-function-windows.png}
+            \caption{Префиксы функций в Windows и их значение}
+        \end{center}
+    \end{figure}
+
     \section{Примитивы синхронизации в Windows}
 
     \section{Полезные утилиты}
@@ -1161,5 +1363,8 @@ urlcolor=black
     
     \href{https://brendangregg.com/linuxperf.html}{https://brendangregg.com/linuxperf.html}
 
+    Сайт с исходниками линукса "--- 
+    
+    \href{https://elixir.bootlin.com/linux/latest/source/include/linux/sched.h}{https://elixir.bootlin.com/linux/latest/source/include/linux/sched.h}
 
 \end{document}
