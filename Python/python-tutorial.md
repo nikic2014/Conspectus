@@ -3,7 +3,7 @@
 ## Оглавление
 1. [Введение в python](#introduction-to-python)
     1. [Типы данных в python](#data-types-in-python)
-    2. [Арифметические операции в python](#Arithmetic-operations)
+    2. [Арифметические операции в python](#arithmetic-operations)
     3. [Основные алгоритмические конструкции](#Basic-algorithmic-constructions)
     4. [Параметры функции print()](#print()-function-parameters)
 1. [Что такое backend]()
@@ -186,7 +186,7 @@ a = {a, b, c, d}
 Единственное отличие set от frozenset заключается в том, что set - изменяемый тип данных, а frozenset - нет.
 
 
-### Арифметические операции в python <a name="Arithmetic-operations"></a>
+### Арифметические операции в python <a name="arithmetic-operations"></a>
 
 * \+ — сложение
 * \- — вычитание
