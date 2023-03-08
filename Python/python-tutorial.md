@@ -4,7 +4,7 @@
 1. [Введение в python](#introduction-to-python)
     1. [Типы данных в python](#data-types-in-python)
     2. [Арифметические операции в python](#arithmetic-operations)
-    3. [Основные алгоритмические конструкции](#Basic-algorithmic-constructions)
+    3. [Основные алгоритмические конструкции](#basic-algorithmic-constructions)
     4. [Параметры функции print()](#print()-function-parameters)
 1. [Что такое backend]()
 2. [Postger SQL]()
@@ -204,7 +204,7 @@ a = {a, b, c, d}
 * << >> – операторы сдвига влево или сдвига вправо на заданное количество бит
 * ~ – битовый оператор НЕТ 
 
-### Основные алгоритмические конструкции <a name="Basic-algorithmic-constructions"></a>
+### Основные алгоритмические конструкции <a name="basic-algorithmic-constructions"></a>
 
 **Ветвление**
 
