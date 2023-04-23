@@ -12,6 +12,9 @@
     1. [Лямбда](#lamda)
     1. [Streams](#streams)
     1. [Операции над stream](#operation-of-stream)
+1. [Deep Java](#deep-java)
+    1. [Java memory managment](#java-memory-managment)
+    1. []()
 1. [Логирование](#logging)
 1. [Docker: приложение в коробке]()
 1. [Оптимизация и мониторинг docker-образов. DockerHub]()
@@ -21,7 +24,7 @@
 
 # Roadmap <a name="road-map"></a>
 
-![Изображение](Road-map.png)
+![Изображение](image/Road-map.png)
 
 
 # Введение в Java  <a name="introduction-to-Java"></a>
@@ -136,7 +139,7 @@ int[][] a = new int[2][2] {{1, 2}, {1, 3}};
 
 **Коллекции**
 
-![Изображение](collection.png)
+![Изображение](image/collection.png)
 
 Пример использования:
 
@@ -864,7 +867,7 @@ else {
 
 **Архитектура современных веб сервисов**
 
-![Изображение](arhetectyre.png) 
+![Изображение](image/arhetectyre.png) 
 
 # Полезные ресурсы <a name="res"></a>
 
@@ -891,7 +894,3 @@ else {
 1. [Неплохое виде по Stream API](https://www.youtube.com/watch?v=RzEiCguFZiY)
 
 # Проекты <a name="project"></a>
-
-
-
-[def]: test.md
