@@ -893,4 +893,7 @@ else {
 
 1. [Неплохое виде по Stream API](https://www.youtube.com/watch?v=RzEiCguFZiY)
 
+1. [Хорошая статья по
+   JVM](https://skillbox.ru/media/code/kak-ustroena-java-virtual-machine-i-ee-ekosistema/)
+
 # Проекты <a name="project"></a>
