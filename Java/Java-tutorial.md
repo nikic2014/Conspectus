@@ -12,10 +12,8 @@
     1. [Лямбда](#lamda)
     1. [Streams](#streams)
     1. [Операции над stream](#operation-of-stream)
-1. [Deep Java](#deep-java)
-    1. [Java memory managment](#java-memory-managment)
-    1. []()
-1. [Логирование](#logging)
+1. [Deep Java](/Java/Deep-Java.md)
+1. [Maven](/Java/Maven.md)
 1. [Docker: приложение в коробке]()
 1. [Оптимизация и мониторинг docker-образов. DockerHub]()
 1. [Факты](#facts)
@@ -895,5 +893,8 @@ else {
 
 1. [Хорошая статья по
    JVM](https://skillbox.ru/media/code/kak-ustroena-java-virtual-machine-i-ee-ekosistema/)
+
+1. [Плейлист по thread
+   JAVA](https://www.youtube.com/watch?v=OcgiNb-m8oo&list=PLqnlz-HutZiRA06Y-LdunLtHN7XwBZgNG&index=1)
 
 # Проекты <a name="project"></a>
