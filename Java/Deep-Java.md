@@ -6,6 +6,7 @@
 1. [Сериализация](#serialization)
 1. [Java Virtual Machine](#jvm)
 1. [Garbage Collection](#gc)
+1. [Рефлексия](#reflection)
 1. [Многопоточность](#treads)
     1. [Синхронизация потоков](#synchronization)
 
@@ -438,6 +439,75 @@ Sweep). Этот алгоритм состоит из трех этапов:
    Major GC работает медленнее по сравнению с Minor GC, поскольку старое
    поколение в основном состоит из живых объектов.
 
+
+
+
+## Рефлейксия <a name="reflection"></a>
+
+Рефлексия позволяет исследовать информацию о полях, методах и конструкторах классов. Те мы рассматриваем сущность какого-нибудь класса, как экземпляр. Те мы рассматриваем класс как экземпляр класса Class, где его поля это:
+~~~
+class Class {
+    String name;
+    String packageName;
+    List<Attribute> attributes;
+    List<Method> methods;
+}
+~~~
+
+Существует 3 способа получить доступ к нашему классу, как к экземпляру Class:
+
+1. Class c = MyClass.class; // обращение к классу
+1. Class c = obj.getClass; // обращение к экземпляру
+1. Class c = Class.forName("ru.alisve.MyClass") // через путь
+
+Основные методы при работе с Class: 
+
+1. Object o1 = c.newInstance() // создать экземпляр класса с пустым 
+   конструктором.
+1. Object o1 = c.getConstructor(String.class).newInstance("...") // находим 
+   конструктор, который принимает строку и передаем ему это значение строки
+1. Method[] m = c.getMethods(); // получить массив методов
+    1. m[i].getName(); // имя метода
+    1. m[i].getReturnType(); // возвращаемый тип
+    1. m[i].getParameterTypes(); // принимаемые параметры
+    1. m[i].invoke(o1, ...) // вызывает метод к экземпляру класса o1, затем 
+       передаются параметры с которыми он вызывается. 
+1. c.getFields(); // получаем список полей класса (getDeclaredFields возвращает
+   еще и запреваченные поля)
+1. c.getAnnotation();   // посмотреть все аннотации
+
+Пример:
+
+На вход подаются имена двух классаов и метода первого класса. Нужно вызвать метод с параметром - второй класс.
+
+~~~
+// получаем класс1 и класс2 по имени из консоли
+Class classObject1 = Class.forName(scanner.next());
+Class class0bject2 = Class.forName(scanner.next()); 
+
+// получаем название метода
+String methodName = scanner.next();
+
+// получаем метод по названию и набору параметров (в данном примере это класс2)
+Method m = class0bject1.getMethod(methodName, class0bject2);
+
+// создаем экземпляры класса1 с пустым конструктором
+// и класса2 с конструктором принимающим строку и значением строки:
+// "String values" 
+Object o1 = class0bject1.newInstance();
+Object o2 = class0bject2.getConstructor(String.class).newInstance("String 
+value");
+
+// вызываем метод класса1 на экземпляре1, как параметр передавая экземпляр2
+m.invoke(o1, o2);
+
+// выводим результат
+System.out.println(o1);
+~~~
+
+
+
+
 ## Многопоточность <a name="treads"></a>
 
 Поток - это минимальная вычеслительная единица, которой операционная система
@@ -516,6 +586,40 @@ Thread is Running Successfully Thread-2
 
 ![Изображение](image/life-cycle-of-thread.png)
 
+### Проблемма некогерентности кэшей процессора
+
+Во время выполнения многопоточной программы, при изменение переменной из другого потока, может возникнуть ситуация, что в одном потоке переменная измениться, а в другом нет (тк процессор закеширует значение этой переменной).
+
+Для решения этой проблеммы используется слово volatile, которая говорит, что
+переменная может быть изменена и ее не надо кэшировать.
+
+Пример:
+
+~~~
+public static void main(String[] args) {
+
+    MyThread myThread = new MyThread();
+    myThread.start();
+    Scanner scanner = new Scanner(System.in);
+    scanner.nextLine();
+    myThread.shutdown();
+}
+
+static class MyThread extends Thread {
+    private boolean volatile running = true; // данная переменная     
+                                            //может закешироваться
+
+    public void run() {
+        while (running) {
+            System.out.println("Hello");
+        }
+    }
+    public void shutdown() {
+        this.running = false;
+    }
+}
+~~~
+
 ### Синхронизация потоков <a name="synchronization"></a>
 
 **Sleep - Засыпание потока**
@@ -557,16 +661,17 @@ interrupt(). Вызов этого метода устанавливает у п
 
 При этом сам вызов этого метода НЕ завершает поток, он только устанавливает
 статус: в частности, метод isInterrupted() класса Thread будет возвращать
-значение true
+значение true. 
+
+А также, если поток прерывается через Interupte, а в нем остались действия, то в нем вызывается исключение Interupte exeption.
 
 ~~~
 public static void main(String []args) {
 	Runnable task = () -> {
-		try {
-			TimeUnit.SECONDS.sleep(60);
-		} catch (InterruptedException e) {
-			System.out.println("Interrupted");
-		}
+		for (int i = 0;i < 100; i++>)
+            if (Thread.currentTread().isInterupted())
+        	    breadk;
+            TimeUnit.SECONDS.sleep(60);
 	};
 	Thread thread = new Thread(task);
 	thread.start();
@@ -602,15 +707,15 @@ main будет ждать, пока спящий поток не проснёт
 
 **Блокировки**
 
-Монитор существует у каждого объекта, это своего рода диспетчер, который говорит
-занят этот объект каким-то потоком или нет.
+Монитор существует у каждого объекта, это своего рода диспетчер, который 
+говорит занят этот объект каким-то потоком или нет.
 
 Для целей синхронизации между потоками Java использует некий механизм, который
-называется "Монитор". С каждым объектом ассоциирован некоторый монитор, а потоки
-могут его заблокировать "lock" или разблокировать "unlock".
+называется "Монитор". С каждым объектом ассоциирован некоторый монитор, а
+потоки могут его заблокировать "lock" или разблокировать "unlock".
 
-Далее важно понять, каким образом объект в Java может быть связан с монитором. У
-каждого объекта в Java есть заголовок (header) — своего рода внутренние
+Далее важно понять, каким образом объект в Java может быть связан с монитором.
+У каждого объекта в Java есть заголовок (header) — своего рода внутренние 
 метаданные, которые недоступны программисту из кода, но которые нужны
 виртуальной машине, чтобы работать с объектами правильно.
 
@@ -628,6 +733,15 @@ public class HelloWorld{
     }
 }
 ~~~
+
+Аналогично можно синхронезировать не по объекту, а через метод:
+
+~~~
+public synchronized void Hello(){
+    System.out.println("Hello World");
+}
+~~~
+
 
 Итак, при помощи ключевого слова synchronized текущий поток (в котором
 выполняются эти строки кода) пытается использовать монитор, ассоциированный с
@@ -765,6 +879,64 @@ thread
 
 Здесь главный поток сначала отправляет задачу task в новый поток, а потом сразу же "захватывает" лок и выполняет с ним долгую операцию (8 секунд). Всё это время task не может для своего выполнения зайти в блок synchronized, т.к. лок уже занят.
 
+Еще один интересный пример, когда нужно использовать блокировку по объекту:
+
+~~~
+public void f1(){
+    System.out.println("hellow");
+}
+
+public void f2(){
+    System.out.println("hellow");
+}
+
+Runnable task = () -> {
+    for (int i=0;i<1000;i++)
+        f1();
+        f2();
+
+Thread th1 = new Thread(task);
+Thread th2 = new Thread(task);
+th1.start();
+th2.start();
+}
+~~~
+
+Если мы просто синхронизируем функции, то время выполнения будет такое же, как 
+и в однопоточном режиме.
+
+Поэтому нужно синхронизировать по монитору, тогда у нас поток пока ждет разблокировки монитора одного объекта, может выполнить действия с другим объектом.
+
+~~~
+Object lock1 = new Object();
+Object lock2 = new Object();
+
+
+public void f1(){
+    synchronized (lock1){
+        System.out.println("hellow");
+    }
+}
+
+public void f2(){
+    synchronized (lock2){
+        System.out.println("buy");
+    }
+}
+
+Runnable task = () -> {
+    for (int i=0;i<1000;i++)
+        f1();
+        f2();
+
+Thread th1 = new Thread(task);
+Thread th2 = new Thread(task);
+th1.start();
+th2.start();
+}
+~~~
+
+
 **Wait и ожидание по монитору.**
 
 У Thread есть ещё один метод ожидания, который при этом связан с монитором. В
@@ -819,8 +991,250 @@ lock, но становиться в очередь потоков, ожидаю
 Существует возможность отправить уведомление только одному из потоков (notify)
 или сразу всем потокам из очереди (notifyAll).
 
+**ThreadFactory**
 
-**Явные блокировки**
+Объект, который создает новые потоки по требованию. Использование фабрик потоков
+устраняет привязку вызовов к новому потоку, позволяя приложениям использовать
+специальные подклассы потоков, приоритеты и т.д. Самая простая реализация этого
+интерфейса:
+
+~~~
+class SimpleThreadFactory implements ThreadFactory {
+   public Thread newThread(Runnable r) {
+     return new Thread(r);
+   }
+}
+~~~
+
+### Thread-pool
+
+Pool потоков - это структура данных для быстрого создания и удобного
+использования сразу несколькоих потоков.
+
+Основные команды:
+
+~~~
+// создание фиксированного количества потоков
+ExecutorService s = ExecutorService.newFixedThreadPool(2); 
+
+// передаем задачи на выполнение ExecutorService
+s.sumbit(task) 
+
+// запуск выполнения заданий (сразу после вызова, мы выходим из этой функции, 
+// аналогично th.start();)
+s.shutdown() 
+
+// аналогично join, ожидаем завершения заданий, если не выполнилось во время, 
+// то обрубаем выполнение
+s.awaitTermination(1, TimeUnit.Days);
+~~~
+
+### Патерн producer - consumer
+
+Суть данного патерна заключается в том, что есть producer, который заполняет
+набором данных какую-то коллекцию, и consumer, который считывает данные из этой
+коллекции.
+
+**ArrayBlockingQueue** - Это "ограниченный буфер", в котором массив фиксированного размера содержит элементы, вставленные producer и извлеченные consumer.
+
+Операции:
+~~~
+BlockingQueue queue = new ArrayBlockingQueue<>(10); // создание очереди
+// очередь будет ограничена и больше 10 элементов в нее не будут добавляться.
+
+
+private static void produce() throws InterruptedException { 
+    Random random = new Random();
+    while (true) {
+        queue.put(random.nextInt( bound: 100)); // положить элемент в очередь
+    }
+}
+private static void consumer() throws InterruptedException {
+    while (true) {
+        Thread.sleep( millis: 100);
+        System.out.println(queue.take()); // получить элемент из очереди
+        System.out println("Queue size is " + queue.size());
+    }
+}
+~~~
+
+Данный класс потокобезопасен, и мы можем спокойно класть элементы в одном потоке, а в другом получить их.
+
+
+### Wait and notify
+
+Wait может вызываться только внутри синхронизованного блока.
+
+Wait останавливает выполнение и ожидает пока вызовится notify() на том же 
+объекте, что и было вызвано wait. Но при этомо notify не освобождает монитор.
+
+Пример:
+~~~
+class WaitAndNotify { 
+    publid void produce() throws InterruptedException {
+        synchronized (this) {
+            System.out.pringln("Producer started");
+            wait();
+            System.out.println("Producer resume")
+        }
+    }
+    
+    
+    public void consume() throws InterruptedException {
+        Thread.sleep( millis: 2000); 
+        Scanner scanner = new Scanner(System.in);
+        
+        synchronized (this) {
+            System.out println("Waiting for return key pressed"); 
+            scanner.nextLine(); 
+            notify();
+            System.sleep(3000);
+            System.out.println("Producer thread started…");
+        }
+    }
+}
+~~~
+
+В данном примере мы вызываем produce в потоке 1, и consume в потоке 2.
+Когда первый поток дойдет до wait он остановится и начнет ожидать пока вызовется notify, но выполнение ее продолжится не сразу, а только через 3 секунды, тк обе функции синхронизированы по объекту this и producer должен дожаться пока consumer отдаст монитор.
+
+### Реализация producer-consumer через wait и notify
+
+~~~
+import javax.annotation.processing.SupportedSourceVersion;
+import java.sql.Connection;
+import java.sql.Time;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static java.lang.Math.max;
+
+public class Main {
+    public static void main(String[] args) throws InterruptedException {
+        ProduserConsumer pc = new ProduserConsumer();
+
+        Thread th1 = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try{
+                    pc.produser();
+                }
+                catch (InterruptedException e){
+                    e.printStackTrace();
+                }
+            }
+        });
+        Thread th2 = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try{
+                    pc.consumer();
+                }
+                catch (InterruptedException e){
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        th1.start();
+        th2.start();
+        th1.join();
+        th2.join();
+    }
+}
+
+class ProduserConsumer{
+    private Queue<Integer> queue = new LinkedList<>();
+    private final int limit = 10;
+    private Object lock = new Object();
+
+    public void produser() throws InterruptedException {
+        int value = 0;
+
+        while (true){
+            synchronized (lock){
+                while (queue.size() == limit)
+                    lock.wait();
+
+                queue.offer(value++);
+                lock.notify();
+            }
+        }
+
+    }
+    public void consumer() throws InterruptedException {
+        while (true){
+            synchronized (lock){
+                while (queue.size() == 0)
+                    lock.wait();
+
+                int value = queue.poll();
+                System.out.println(value);
+                System.out.println(queue.size());
+                lock.notify();
+            }
+            Thread.sleep(1000);
+        }
+    }
+}
+~~~
+
+### CountDownLatch
+
+CountDownLatch - это удобный потокобезопасный класс, в конструктор которого передается число раз, сколько мы должны вызвать метод CountDown, чтобы в месте вызовава на объекте CountDownLatch метода await выполнение задачи продолжилось.
+
+Пример использования:
+
+~~~
+import javax.annotation.processing.SupportedSourceVersion;
+import java.sql.Connection;
+import java.sql.Time;
+import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static java.lang.Math.max;
+
+public class Main {
+    public static void main(String[] args) throws InterruptedException {
+        CountDownLatch countDownLatch = new CountDownLatch(3);
+        ExecutorService executorService = Executors.newFixedThreadPool(3);
+        for(int i = 0; i < 3; i++)
+            executorService.submit(new Processor(countDownLatch));
+
+        executorService.shutdown();
+
+        countDownLatch.await();
+        System.out.println("Latch has been opened, main thread is proceeding!");
+    }
+}
+
+class Processor implements Runnable {
+    private CountDownLatch countDownLatch;
+
+    public Processor(CountDownLatch countDownLatch) {
+        this.countDownLatch = countDownLatch;
+    }
+
+    @Override
+    public void run() {
+        try {
+            Thread.sleep(3000);
+            countDownLatch.countDown();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+~~~
+
+В данном примере мы в главном потоке ждем, пока в трех других потоках отсчитается countDown() до 0 и выводим сообщение на экран.
+
+### ReentrantLock
 
 Рассмотрим код
 
@@ -894,40 +1308,30 @@ Thread-1
 дольше всех ждет разблокировки захватит ее первым (после разблокировки
 исполняемым потоком).
 
+Также ReentrantLock может вызвать метод lock() сколько угодно раз, и тогда нужно будет столько же раз вызвать метод unlock() для разблокировки.
+
 **trylock** - данный метод не ждет разблокировки, а если в данном месте была
 захвачена блокировка другим потоком, то он немедленно вернет false. (Можно
-передать внутрь время, которое поток будет ждать, до возврата false)
+передать внутрь время, которое поток будет ждать, до возврата false).
 
-
-**ThreadFactory**
-
-Объект, который создает новые потоки по требованию. Использование фабрик потоков
-устраняет привязку вызовов к новому потоку, позволяя приложениям использовать
-специальные подклассы потоков, приоритеты и т.д. Самая простая реализация этого
-интерфейса:
-
-~~~
-class SimpleThreadFactory implements ThreadFactory {
-   public Thread newThread(Runnable r) {
-     return new Thread(r);
-   }
-}
-~~~
-
-**Semaphore**
+### Semaphore
 
 Данный примитив синхронизации говорит о том сколько потоков может одновременно
 выполнять программу.
 
 Метод acquire - блокирует выполнение программы большим числом потоков, чем
-указано, release убирает данную блокировку. Если метода release не будет, то
-даже после выполнения задачи блокировка снята не будет.
+указано (забирает одно разрешение), release убирает данную блокировку
+(возвращает одно разрешение). Если метода release не будет, то даже после выполнения задачи блокировка снята не будет.
 
 По сути acquire - отключает текущий поток для целей планирования потоков, если только не доступно разрешение. Если разрешение доступно, то оно используется, и вызов немедленно возвращается; в противном случае текущий поток становится отключенным для целей планирования потоков и находится в состоянии покоя, пока не произойдет одно из трех событий:
 
 - Какой-либо другой поток вызывает unpark с текущим потоком в качестве целевого
 - Какой-либо другой поток не вызовет interrupt к текущему потоку
 - Данный поток сам не распаркуется))).
+
+Метод avaliblePermits() - возвращает количество свободных разрешений.
+
+Важно класть метод release, в finaly, чтобы исключения не вызывали мертвой блокировки.
 
 ~~~
 public class Main {
@@ -939,9 +1343,12 @@ public class Main {
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
+            finaly {
+                semaphore.release();
+            }
             System.out.println(Thread.currentThread().getName());
             System.out.println(Thread.currentThread().getName() + " end");
-            semaphore.release();
+
         };
 
         Thread t1 = new Thread(task);
@@ -955,4 +1362,85 @@ Thread-0
 Thread-0 end
 Thread-1
 Thread-1 end
+~~~
+
+### Deadlock
+
+В логике вашей программы может возникнуть такая ситуация, когда у вас есть два 
+или больше ресурсов, вы ходитите блокировать их вместе, при этом данная
+блокировка может быть в разном порядке. В таком случае у вас может возникнуть
+Deadlock. Допустим есть ресурс1 и ресурс2, в одном потоке вы блокируете в
+порядке рес1 рес2, а в другом рес2 рес1. Тогда, если в один момент времени 
+один поток заблокирует рес1, а другой рес2, вы не сможете их разблокировать, и
+они останутся висеть заблокированными.
+
+Для того, чтобы таких ситуаций не возникало нужно использовать try lock или вызывать блокировки везде в одинаковом порядке.
+
+
+~~~
+
+while (true){
+    bool firlock = false;
+    bool seclock = false;
+
+    try {
+        lock1.trylock();
+        lock2.trylock();
+    }
+    finaly {
+        if (firlock && seclock)
+            return;
+
+        if (firlock)
+            lock1.unlock();
+        
+        if (seclock)
+            lock2.unlock();
+    }
+}
+~~~
+
+### Callable и Future
+
+Интерфейс Callable позволяет нам возвращать объекты из потоков, не создавая для этого переменных в глобальной области видимости(работает также как Runnable, только позволяет вернуть значение).
+
+Интерфейс Future после выполнения потока будет хранить в себе результат вычисления.
+
+Также данные интерфейсы позволяют выбрасывать свои исключения в потоках и обрабатывать их в других.
+
+Пример использования.
+
+~~~
+
+public class Main {
+    public static <ExecutionException> void main(String[] args) throws InterruptedException {
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
+        Future<Integer> future = executorService.submit(() -> {
+            System.out.println("Starting");
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println("Finished");
+            Random random = new Random();
+
+            if (random.nextInt(10) < 5)
+                throw new Exception("Something bad");
+
+            return random.nextInt(10);
+        });
+
+        executorService.shutdown();
+        try {
+            int result = future.get();
+            System.out.println(result);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (java.util.concurrent.ExecutionException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
 ~~~
