@@ -6,8 +6,8 @@
     1. [Bean scope (Область видимости бинов)](#bean-scope)
     1. [Жизненный цикл бина (Bean Lifecycle) и его методы](#bean-lifecycle)
     1. [Аннотации](#annotation)
-    1. 
-    1. 
+    1. [Конфигурация Spring без xml](#spring-without-xml)
+1. [Spring MVC]()
 1. [Полезные ресурсы](#res)
 
 # Spring Core <a name="spring-core"></a>
@@ -231,16 +231,63 @@ public void Destroy(){
 ~~~
 
 
-# Аннотации <a name="annotation"></a>
+## Аннотации <a name="annotation"></a>
+
+1. Component - данной анотацией мы помечаем класс, если хотим чтобы из него был
+   создан бин.
+   ~~~
+    <context:component-scan base-package="ru.kuzyakin.springcourse"/>
+   ~~~
+   Данной строчкой мы указываем дерикторию для сканирования классов, и
+   превращения их в бины.
+1. Autowired - сканирует все созданиые бины и проверяет, могут или они подойти в
+   качестве зависимости в наш создаваемый бин. (если нет ни одного подходящего
+   бина или их несколько возникает ошибка). Можно использовать на полях,
+   setters, конструкторах (желательно во всем проекте придерживаться одного
+   стиля внедрения зависимостей).
+1. Qualifier("RockMusick") - указывается предпочтительный id бина, который  
+   хотелось бы внедрить. Указывается аналогично Autowired, только при работе с
+   конструктором, чуть другой синтаксис:
+   ~~~
+   @Autowired
+   public Musik(@Qualifier("Rock") Music music1){
+        ...
+   }
+   ~~~
+1. Scope - указывает, как именно будет создаваться бин.
+1. Value("") - в ковычках указывается или значение или название переменной в
+   файле ресурсов.
+1. PostConstruct - данная аннотация помечает init method.
+1. PreDestroy - данная аннотация помечает destroy method.
 
 
+## Конфигурация Spring без xml <a name="spring-without-xml"></a>
 
+Чтобы использовать конфигурацию через java класс используется аннотация
+@Configuration. Пустой класс аналогичен пустому xml файлу. Для каждого xml тега
+есть соответсвующая аннотация:
 
+- component-scan = ComponentScan("путь")
+- Bean - создает бин:
+  ~~~
+    @Configuration
+    public class SpringConfig {
+        @Bean
+        public RockMusic Rock(){
+            return new RockMusic("ARIA");
+        }
 
+        @Bean
+        public Musik Mus() {
+            return new Musik(Rock());
+        }
+    }
 
-
-
-
+    AnnotationConfigApplicationContext applicationContext =
+        new AnnotationConfigApplicationContext(SpringConfig.class);
+    RockMusic music = applicationContext.getBean("Rock", RockMusic.class);
+  ~~~
+- property-placeholder = PropertySourse("путь к внешнему файлу с переменными") 
 
 # Полезные ресурсы <a name="res"></a>
 
