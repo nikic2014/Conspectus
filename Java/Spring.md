@@ -8,6 +8,7 @@
     1. [Аннотации](#annotation)
     1. [Конфигурация Spring без xml](#spring-without-xml)
 1. [Spring MVC](#spring-mvc)
+1. [Spring Boot](#spring-boot)
 1. [Полезные ресурсы](#res)
 
 # Spring Core <a name="spring-core"></a>
@@ -240,11 +241,8 @@ public void Destroy(){
    ~~~
    Данной строчкой мы указываем дерикторию для сканирования классов, и
    превращения их в бины.
-1. Autowired - сканирует все созданиые бины и проверяет, могут или они подойти в
-   качестве зависимости в наш создаваемый бин. (если нет ни одного подходящего
-   бина или их несколько возникает ошибка). Можно использовать на полях,
-   setters, конструкторах (желательно во всем проекте придерживаться одного
-   стиля внедрения зависимостей).
+1. Autowired - сканирует все созданиые бины и проверяет, могут или они подойти 
+   в качестве зависимости в наш создаваемый бин. (если нет ни одного подходящего бина или их несколько возникает ошибка). Можно использовать на полях, setters, конструкторах (желательно во всем проекте придерживаться одного стиля внедрения зависимостей).
 1. Qualifier("RockMusick") - указывается предпочтительный id бина, который  
    хотелось бы внедрить. Указывается аналогично Autowired, только при работе с
    конструктором, чуть другой синтаксис:
@@ -932,6 +930,9 @@ jdbcTemplate.batchUpdate("INSERT INTO Person values(?,?,?,?)",
 
 ## Чуть-чуть о базах данных (в частности postgres)
 
+
+### SERIAL
+
 В postgres нет autoincrement, для этого используется макрос SERIAL. Его можно даже создать вручную (для этого используется sequence - последовательность):
 
 ~~~
@@ -956,8 +957,621 @@ CREATE TABLE foo (
 
 ~~~
 
+### Двойная валадация
+
+Способы наложения ограничения на таблицы в бд:
+
+- Not null
+- Unique
+- Primary key
+- id int check (age > 0)
+
+### Отношения в базах данных
+
+- Один к одному (one to one) - у многих объектов есть ссыка на один объект
+  (Ученики и учитель). 
+
+  Для реализации используется primary key у учителя и ссылка на него у каждого ученика foreign key.
+
+- Один ко многим (one to many) - у конкретного объекта есть одна вещь   
+  (призедент - страна, человек - его паспорт).
+  
+  Для реализации этого, поле primary key у паспорта или у страны является вместе с этим и foreign key, которое ссылается на primary key человека или президента.
+
+- Многие ко многим (many to many) - (актеры и фильмы, студенты и занятия). 
+  
+  Для построение связи между этими таблицами используется связывающая таблица, у которой есть два foreign key, которые указывают на primary key основных таблиц.
+
+  ![Изображение](image/ManyToMany.png)
+
+
+### Join
+
+- inner - показывает только совпавшее пересечение таблиц;
+- left - показывает вместе с этим строки, у которых не нашлос пересечения;
+- right - аналогично только справой стороны == ;
+- cross - все возможные сапостовления из левой и правой таблицы;
+
+### Индексы
+
+Индекс можно представить как отдельную таблицу, где все значение отсортированны по определенному столбцу.
+
+Индексы нужно создавать на те колонки, по которым чаще всего производится поиск.
+
+В postgres существуют следующие индексы:
+
+- Primary key
+- B-Tree index
+- Hash index
+- Gin index - для текста
+- Brin index
+
+### Каскадирование 
+
+Если мы удалим значение из таблицы, которое используется в другой таблице, то мы получим ошибку. Чтобы избежать этого используется каскадирование:
+
+~~~
+user_id int REFERENCES PERSON(user_id) ON DELETE ... // вариант каскадирования
+~~~
+
+Есть три варианта каскадирования:
+
+1. CASCADE - при удаление строк в главной таблице удаляются строки в зависимой
+   таблице.
+1. SET NULL - при удалении строки в главной таблице, в дочерней подставляются
+   null значения.
+1. RESTRICT - поведение по умолчанию, выдает ошибку.
+
+## Продвинутая валидаци 
+
+### Spring validator
+
+Для того, чтобы красиво обрабатывать ошибки в наших формах или прочих сущностях, используются валидаторы. В Spring есть встроенный валидатор.
+
+Пример использования:
+
+~~~
+@Component
+public classPersonalValidator implement Validator{
+    private final PersonDAO personDAO;
+
+
+    @Autowired
+    public PersonValidator(PersonDAO personDAO){
+        this.personDAO = personDAO;
+    }
+
+    @Override
+    public boolean supports(Class<?> aClass){
+        return Person.class.equals(aClass); // проверка на то, что мы       
+                                            //воледируем нужный класс
+    }
+
+    @Override
+    public void supports(Object o, Errors errors){
+        Person person = (Person) o;
+
+        // можно использовать функцию Optional isPresent() вместо != null
+        if (personDAO.show(person.getEmail())!=null){
+            errors.rejectValue("email", "", "This Email is alredy taken");
+                // (на каком поле произошла ошибка, код ошибки, сообщение); 
+        }
+    }
+}
+~~~
+
+Затем помещаем в функцию, где происходит зпрос наш валидатор:
+
+~~~
+personValidator(person, bindingResult);
+~~~
+Теперь, если произойдет ошибка, она запишется в наш bindingResult.
+
+### Валидация паттернов
+
+Допустим у нас есть поле address: Страна, Город, индекс (6 цифр). Пример:
+Russian, Moscow, 123456.
+
+Для этого используется аннотация @Pattern:
+
+~~~
+@Pattern(regexp="[A-Z]\\w+, [A-Z]\\w+, \\d{6}", message = "")
+private String address;
+~~~
+
+## Hibernate
+
+Hubernate - ORM, который берет на себя отображение наших java объектов в таблицы и обратно.
+
+Сущности в Hibernate:
+
+- SessionFactory - объект для конструирования сессий.
+- Session - объект, через который мы отправляем запросы к бд.
+
+Во время работы с базой данных используются транзакции, транзакции могут
+блокировать доступ к бд во время работы с ними.
+
+Операции с транзакциями:
+
+- session.beginTransaction(); - начало транзакции
+- session.save(person); - сохраняем пользователя
+- session.getTransaction().commit(); - применить транзакцию
+- session.getTransaction().rollback(); - откатить транзакцию
+- sessionFactory.close() - закрывает сессии.
+
+Аннотации:
+
+- @Entity - для обозначения, что класс связон с базой данных используется
+  аннотация. 
+- @Table(name = "Person") - явное указание с какой таблицей связана сущность.
+- @Column(name = "id") public int id; - связь поля с колонкой в таблице бд.
+- @Id - аннотация указывающая на primary key.
+- @GenerateValue(strategy = GenerationType.IDENTITY)
+
+Также обязательно у сущности должен быть пустой конструктор.
+
+Примеры создания, удалени, изменнения объекта:
+
+~~~
+session.beginTransaction();
+
+Person person = new Person("asdas", "russia");
+session.save(person);
+
+session.getTransaction.commit();
+
+// после сохранения человека в базу данных мы сразу можем узнать его id
+
+person.getId();
+
+~~~
+
+~~~
+session.beginTransaction();
+
+Person person = session.get(Person.class, 2);
+person.setName("bbbb");
+
+session.getTransaction.commit();
+~~~
+~~~
+session.beginTransaction();
+
+Person person = session.get(Person.class, 2);
+session.delete(person);
+
+session.getTransaction.commit();
+~~~
+
+## HQL
+
+Это специальный язык для работы с Hibernate, в нем мы работаем с сущностями.
+Можно также использовать SQL запросы. HQL работает с сущностями в java, он ничего не знает о таблицах в бд.
+
+Пример HQL запроса:
+
+~~~
+List<Person> people = session.createQuery("FROM Person").getResultList();
+~~~
+
+~~~
+List<Person> people = session.createQuery("FROM Person WHERE age > 30").getResultList();
+~~~
+
+
+~~~
+session.createQuery("update Person set name = 'Test' 
+    where age < 30").executeUpdate();
+~~~
+
+# Spring boot <a name="spring-boot"></a>
+
+Проблемы Spring:
+
+- Очень много конфигураций;
+- Зависимости могут конфликтовать между собой;
+- Сборка приложений и деплой на сервер.
+
+Spring Boot - это всего лишь одна из частей Spring Framework.
+
+Решение проблем в Spring Boot:
+
+- Он сам предугадывает нужную конфигурацию и чаще всего правильно;
+- Зависимости сгрупированы в одну большую зависимость стартер, что не 
+  допускает конфликтов.
+- Spring содержит внутри себя уже веб сервер и он запускается автоматически.
+
+## Базовая информация
+
+- @SpringBootApplication - автоматически конфигурирует и заменяет аннотации
+  ComponentScan, Configuration. (Сканирует он в папке и подпапках, где он лежит) Те он является корнем проекта.
+- application.properties - файл, который хранит конфигурации в формате
+  ключ-значение (базы данных, порты и тд).
+  ~~~
+  spring.datasourse.url = jdbc:postgressql://...
+  ~~~
+- все html, css и тд шаблоны теперь будут лежать в папке resourses.
+
+## Запуск Spring boot приложения через командную строку
+
+1. Для начало переходим в папку с нашим проектом на сервере;
+1. запускаем скрипт ./mvnw , если на сервере нет maven;
+1. mnv packege - собираем jar файл;
+1. Запускаем jar файл: java -jar SpringBootApp-0.0.1-SNAPSHOT.jar
+
+## Один ко многим (One-to-many)
+
+Для обозначения этого отношения в hibernate есть аннотации:
+
+1. OneToMany(mappedBy = "owner") - которорая обозначается над полем объекта,
+   который One. Указываем поле в классе Many, которое ссылается на нас.
+1. ManyToOne - которорая обозначается над полем объекта, который Many.
+    - JoinColumn(name = "person_id", referencedColumnName = "id") - какой
+      столбец соотвествует объекте Many, столбцу в объекте One.
+
+При работе с данными сущностями нужно одновременно работать с обоими.
+
+## Жизненный цикл сущностей Hibernate
+
+1. Transient state - объект только создан, он не сохранен в бд и транзакция с
+   ним не закрыта. Вызов сетеров в нем никак не повлияет на бд. Можно считать,
+   что он работает как обычный java объект.
+1. Persistent (managed) state - мы вызвали save и закрыли транзакцию, теперь   
+   наш объект отслеживается hibernate и базой данных. Сеттеры гененрируют sql код.
+1. Detached - состояние вызванное функцией session.detached(person) или после
+   закрытия сесси. При изменение этого объекта, никаких изменений в бд не произойдет. Вернуть объект обратно session.merge(person).
+
+## Каскадирование  Hibernate
+
+~~~
+@OneToMany(mappedBy = "owner", cascade = CascadeType.PERSIST)
+private List<Item> items;
+~~~
+
+После этого меняем в нашей транзакции метод save, на метод persist.
+
+Разница между save и persist:
+
+1) Save есть только в Hibernate, persist есть в любой JPA библиотеки.
+2) Save возвращает значение первичного ключа добавленной сущности, Persist -
+   ничего не возвращает.
+3) Save гарантирует, что значение pk будет назначено сразу после вызова,   
+   Persist не гарантирует этого.
+
+Можно использовать только save использую аннотацию из  Hibernate @Cascade
+(CascadeType.SAVE_UPDATE), теперь save каскадируется.
+
+## Отношение Один к Одному (OneToOne)
+
+Для обозначения этого отношения в hibernate есть аннотации:
+
+1. OneToOne(mappedBy = "owner") - которорая обозначается над полем объекта,
+   который One. Указываем поле в классе Many, которое ссылается на нас.
+1. OneToOne - которорая обозначается над полем объекта, который Many.
+    - JoinColumn(name = "person_id", referencedColumnName = "id") - какой
+      столбец соотвествует объекте Many, столбцу в объекте One.
+
+Owning Side - главная сущность, в которой мы пишем JoinColumn.
+
+~~~
+public class Passport implement Serializable{
+    
+    @Id
+    @OneToOne(mappedBy="Person")
+    @JoinColumn(name="person_id", referencedColumnName = "id")
+    private Person person;
+
+}
+
+public class Person() {
+    @OneToMany(mappedBy="person")
+    private Passport passport;
+}
+~~~
+
+**Если у нас в Hibernate первичный ключ не число, то нужно наследовать класс от Serializable**.
+
+
+## Отношение Многие ко Многим (ManyToMany)
+
+Тут используются все те же аннотации. Только тут нет Owning side - тк не одна из сторон не хранит внешний ключ.
+
+
+~~~
+@ManyToMany
+@JoinTable(
+    name="Actor_Movie",
+    joinColumns = @JoinColumn(name="actor_id"),
+    inverseJoinColumns = @JoinColumn(name="movie_id")
+)
+private List<Movie> movies;
+~~~
+
+~~~
+
+@ManyToMane(mapperdBy="movies")
+private List<Actor> actors;
+~~~
+
+## Ленивая загрузка (Lazy and Eager)
+
+По умолчанию у разных отношений разные загрузки:
+
+Lazy - OneToMany, ManyToMany
+Eager - OneToOne, ManyToOne.
+
+Можно изменить указав параметр fetch:
+
+~~~
+@OneToMany(mappedBy="owner", fetch=FetchType.EAGER)
+~~~
+
+Если мы используем ленивую загрузку и решим подгрузить, какие-нибудь поля за пределами сессии, у нас это не получится.
+
+**Hibernate.initialize(person.getItems())** - явная подгрузка данных
+
+
+# Spring Data JPA
+
+Со spring data JPA все CRUD операции генерируются автоматически, поэтому в DAO
+отпадает необходимость. Вместо DAO используется репозиторий.
+
+Также в JPA появляется сервисный слой, тк в контроллере и dao у нас должно быть
+минимум кода, вся бизнес логика помещается в Service. Классы сервисного слоя
+помечаются аннотацией @Service. 
+
+@EnableJpeRepositories("путь до папки с репозиториями"). 
+
+В JPA нет session и SessionFactory, есть EntityManager и EntityManagerFactory.
+
+Когда мы помечаем класс аннотацией Transactional(readOnly = true // можно без
+этого условия), все публичные методы этого класса являются транзакцией.
+
+Пример создания репозитория, параметризуется классом и типом primary key.
+
+~~~
+@Repository
+public interface PeopleRepository extends JpaRepository<Person, Integer> {
+}
+~~~
+
+Пример создания сервиса:
+
+~~~
+@Service
+@Transactional(readOnly = true)
+public class PeopleService {
+
+    private final PeopleRepository peopleRepository;
+
+    @Autowired
+    public PeopleService(PeopleRepository peopleRepository) {
+        this.peopleRepository = peopleRepository;
+    }
+
+    public List<Person> findAll() {
+        return peopleRepository.findAll();
+    }
+
+    public Person findOne(int id) {
+        Optional<Person> foundPerson = peopleRepository.findById(id);
+        return foundPerson.orElse(null);
+    }
+
+    @Transactional
+    public void save(Person person) {
+        peopleRepository.save(person);
+    }
+
+    @Transactional
+    public void update(int id, Person updatedPerson) {
+        updatedPerson.setId(id);
+        peopleRepository.save(updatedPerson);
+    }
+
+    @Transactional
+    public void delete(int id) {
+        peopleRepository.deleteById(id);
+    }
+}
+~~~
+
+Чтобы написать кастомный запрос нужно указать сигнатуру метода в репозитории, а реализацию в сервисе. При этом обязательно нужно обратиться к аннотации.
+
+
+# Spring Security
+
+**Аутентификация** - процедура проверки подлинности, например: проверка
+подлинности пользователя путём сравнения введённого им пароля. Кто мы?
+
+**Авторизация** - предоставление определённому лицу или группе лиц прав на
+выполнение определённых действий. Что мы можем делать?
+
+Spring Security работает с помощью входящих фильтров, которые перехватывают все
+наши запросы.
+
+![Изображение](image/AuthenticationSpring.png)
+
+Credentials - учетные данные.
+
+Principal - объект, который успешно прошел аутентификацию, чаще всего туда
+кладется сам пользователь.
+
+Чтобы постоянно не вводить логин и пароль, в Spring Security есть фильтр,
+который сохраняет в сессии principal на какой-то промежуток по времени.
+
+Cookie - ключ и значение, которое хранится в браузере и оно посылается на
+сервер при каждом запросе. (у cookie есть срок жизни, после которого они 
+удаляются).
+
+Сессия - участок памяти, в котором хранятся данные конкретного пользователя. 
+Это помогает поддерживать такие вещи как корзина товаров на сайте, не
+перелогиниваться при каждом новом запросе и тд.
+
+При выходи (разлогиневание) пользователя с сайта, удаляются его cookie и
+сессия.
+
+## Работа с сессией
+
+~~~
+HttpSession session = request.getSession();
+
+session.getAttribute("name attribute"); 
+                        // получить  значение объекта
+
+session.setAttribute("name attribute", начальное значение); 
+                        // установить значение объекта
+~~~
+
+## Работа с Spring Security
+
+По умолчание Spring Security генерирует пользователя и сразу же блокирует 
+доступ к ресурсу без аутентификации.
+
+Для начало создадим каталок security, а в нем класс PersonDetails.
+
+Этот класс является классом оберткой над Person и наследует интерфейс 
+UserDetails.
+
+~~~
+public class PersonDetails implements UserDetails {
+    private final Person person;
+
+    public PersonDetails(Person person) {
+        this.person = person;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return null;
+    }
+
+    @Override
+    public String getPassword() {
+        return this.person.getPassword();
+    }
+
+    @Override
+    public String getUsername() {
+        return this.person.getUsername();
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+    // Нужно, чтобы получать данные аутентифицированного пользователя
+    public Person getPerson() {
+        return this.person;
+    }
+}
+~~~
+
+В папке config создаем класс с настройкой аутентификации.
+
+~~~
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    private final AuthProviderImpl authProvider;
+
+    @Autowired
+    public SecurityConfig(AuthProviderImpl authProvider) {
+        this.authProvider = authProvider;
+    }
+
+    // Настраивает аутентификацию
+    protected void configure(AuthenticationManagerBuilder auth) {
+        auth.authenticationProvider(authProvider);
+    }
+}
+~~~
+
+Тут мы говорим, о том какой именно объект будет проводить аутентификацию.
+Саму аутентификацию мы проведем в объекте AuthProviderImpl, который наследует интерфейс от AuthenticationProvider.
+
+~~~
+@Component
+public class AuthProviderImpl implements AuthenticationProvider {
+
+    private final PersonDetailsService personDetailsService;
+
+    @Autowired
+    public AuthProviderImpl(PersonDetailsService personDetailsService) {
+        this.personDetailsService = personDetailsService;
+    }
+
+    @Override
+    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+        String username = authentication.getName();
+
+        UserDetails personDetails = personDetailsService.loadUserByUsername(username);
+
+        String password = authentication.getCredentials().toString();
+
+        if (!password.equals(personDetails.getPassword()))
+            throw new BadCredentialsException("Incorrect password");
+
+        return new UsernamePasswordAuthenticationToken(personDetails, password,
+                Collections.emptyList());
+    }
+
+
+    @Override
+    public boolean supports(Class<?> aClass) {
+        return true;
+    }
+}
+~~~
+
+- supports указывает на то, в каких сценариях может использоваться данный 
+  AuthProvider.
+- authenticate - проведение аутентификации. С помощью UserDetails мы находим
+  пользователя по логину, если он есть сверяем его пароль в базе данных с 
+  введенным. Возвращаем personDetails (те объект person), его пароль, и список 
+  прав.
+
+
+Получение Details авторизированного пользователя:
+
+~~~
+    @GetMapping("/showUserInfo")
+    public String showUserInfo() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        PersonDetails personDetails = (PersonDetails) authentication.getPrincipal();
+        System.out.println(personDetails.getPerson());
+
+        return "hello";
+    }
+~~~
+
+
+
+
+
 
 # Полезные ресурсы <a name="res"></a>
 
 1. [Документация Spring
    Framework](https://docs.spring.io/spring-framework/reference/overview.html)
+
+1. [Spring Initializer](https://start.spring.io/)
+
+1. [Документация по Spring JPA](https://spring.io/projects/spring-data-jpa)
+
